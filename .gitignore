@@ -1,39 +1,28 @@
-# Object files
+#########################
+# general
+#########################
+
+[Bb]uild/
+[Oo]bj/
 *.o
-*.ko
-*.obj
-*.elf
+[Dd]ebug*/
+[Rr]elease*/
+*.mode*
+*.app/
+*.pyc
+.svn/
+*.log
+*.cpp.eep
+*.cpp.elf
+*.cpp.hex
 
-# Libraries
-*.lib
-*.a
+# Code::Blocks
+*.depend
+*.layout
 
-# Shared objects (inc. Windows DLLs)
-*.dll
-*.so
-*.so.*
-*.dylib
+# Linux
+*~
+# KDE
+.directory
+.AppleDouble
 
-# Executables
-*.exe
-*.out
-*.app
-*.i*86
-*.x86_64
-*.hex
-
-#codeblocks
-[Bb]in/*  
-![Bb]in/data/  
-[Bb]uild/  
-[Oo]bj/  
-*.o  
-[Dd]ebug*/  
-[Rr]elease*/  
-*.mode*  
-*.app/  
-*.pyc  
-*.log  
-
-*.depend  
-*.layout  
