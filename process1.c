@@ -65,12 +65,9 @@ static void * mainLoop()
                     semlock(pkg->sem_id, 4); // ustawienie flagi sygnalu do zabicia procesu nr 2
 
                 semunlock(pkg->sem_id, 2); // wpuszczenie proc 2 do sprawdzenia flagi i zabicia sie
-                // warn("ustawiono flagi itp po locku" );
-
-                //  warn("cancel na 1 po locku" );
+               
                 pthread_cancel(thread);
                 pthread_testcancel();
-                //  warn("czekam na smierc proc 1 po waicie po locku" );
             }
 
             shm[0] = (unsigned char)readed_bytes;
@@ -113,7 +110,6 @@ void startProcess1( char *nazwa , common_sig_struct * sig_struct , shm_sem_pkg *
 
 
     // zwalnianie zasobow i "zamykanie" niedomknietych spraw :P
-
     if( signalDeReg( common_sig_t , sig_struct->sig_t_size ) != SUCCESS)
         fatalError(SIG_DEREG_ERR);
 }
