@@ -18,7 +18,7 @@
 #include<sys/sem.h>
 
 #define SIZE_OF_T(x) (sizeof(x)/sizeof(x[0]))
-#define BUFFER_SIZE   1000 * sizeof(char) // bufor nie moze byc wiekszy niz 255
+#define BUFFER_SIZE   200 * sizeof(char) // bufor nie moze byc wiekszy niz 255
 #define BUFFER_SIZE_WITH_HEADER  (BUFFER_SIZE + sizeof(unsigned char))
 
 #if defined(__GNU_LIBRARY__) && !defined(_SEM_SEMUN_UNDEFINED)
