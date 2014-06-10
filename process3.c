@@ -94,7 +94,5 @@ void startProcess3( char *nazwa , common_sig_struct * sig_struct , pipe_sig_pkg 
     if( signalDeReg( communication_sig_t , pkg23->sig_tab_size ) != SUCCESS)
         fatalError(SIG_DEREG_ERR);
 
-    close(pkg23->pipe_fd[0]);
-
     fprintf(stderr, "proces 3 zakonczony \n");
 }
