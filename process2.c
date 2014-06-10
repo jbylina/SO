@@ -2,35 +2,11 @@
 
 static int * common_sig_t;
 static int * communication_sig_t;
-shm_sem_pkg * pkg;
-pthread_t thread;
+static shm_sem_pkg * pkg;
+static pthread_t thread;
+static pid_t pid_p3;
+static int killfd;
 
-
-static void communicationSigHandler(int signo)
-{
-    if(signo == communication_sig_t[0]) // start
-    {
-
-        if( semVal(pkg->sem_id , 0) > 0 )
-        {
-            semlock(pkg->sem_id , 0);
-        }
-
-    }
-    else if(signo == communication_sig_t[1]) // stop
-    {
-        if( semVal(pkg->sem_id , 0)  == 0)
-        {
-            semunlock(pkg->sem_id , 0);
-        }
-
-    }
-    else if(signo == communication_sig_t[2]) // koniec
-    {
-
-
-    }
-}
 
 static void sigHandler(int signo)
 {
@@ -53,21 +29,50 @@ static void sigHandler(int signo)
     else if(signo == common_sig_t[2]) // koniec
     {
 
-        semlock(pkg->sem_id, 4); // ustawienie flagi sygnalu do zabicia procesu nr 1
+        semlock(pkg->sem_id, 4); // ustawienie flagi sygnalu do zabicia procesu nr 2
 
-        if( semVal(pkg->sem_id , 0)  > 0 )
+        if( semVal(pkg->sem_id , 0)  > 0 ) // jesli dostaniemy podczas  waita
         {
             semlock(pkg->sem_id , 0);
         }
-        // poinformowanie procesu 3
+
     }
 
 }
+
+static void communicationSigHandler(int signo)
+{
+    if(signo == communication_sig_t[0]) // start
+    {
+
+        if( semVal(pkg->sem_id , 0) > 0 )
+        {
+            semlock(pkg->sem_id , 0);
+        }
+
+    }
+    else if(signo == communication_sig_t[1]) // stop
+    {
+        if( semVal(pkg->sem_id , 0)  == 0)
+        {
+            semunlock(pkg->sem_id , 0);
+        }
+
+    }
+    else if(signo == communication_sig_t[2]) // koniec
+    {
+        sigHandler(common_sig_t[2]);
+    }
+}
+
+
 
 static void * mainLoop(void * write_pipe_fd )
 {
     char * shm = pkg->shm_ptr;
     int * fd = (int *)write_pipe_fd;
+
+    killfd = *fd;
 
     unsigned char readed_bytes;
 
@@ -75,8 +80,10 @@ static void * mainLoop(void * write_pipe_fd )
     {
         semlock(pkg->sem_id, 2);
 
-        if( !semVal(pkg->sem_id , 4))
+        if( !semVal(pkg->sem_id , 4) )
         {
+            kill(pid_p3,communication_sig_t[2]); // poinformowanie procesu 3
+
             if( semVal(pkg->sem_id, 3) ) // ustawienie flagi sygnalu do zabicia procesu nr 1
             {
                 semlock(pkg->sem_id, 3);
@@ -89,8 +96,11 @@ static void * mainLoop(void * write_pipe_fd )
 
             semunlock(pkg->sem_id, 1); // wpuszczenie proc 1 do sprawdzenia flagi i zabicia sie
 
-            pthread_cancel(thread);
-            pthread_testcancel();
+            write(killfd, &killfd , sizeof(char) ); // odblokowanie procesu nr 3 aby sie zabil
+
+            break;
+            /*pthread_cancel(thread);
+            pthread_testcancel(); */
         }
 
         readed_bytes = (unsigned char)shm[0];
@@ -106,8 +116,12 @@ void startProcess2( char *nazwa, common_sig_struct * sig_struct , shm_sem_pkg * 
 {
     common_sig_t = sig_struct->sig_t;
     communication_sig_t = pkg23->sig_tab;
-    close(pkg23->pipe_fd[0]); // zamkniecie nieuzywanego deskryptora czytania
     pkg = pkg12;
+
+    if(pkg23->pid)
+        pid_p3 = pkg23->pid;
+    else if( read(pkg23->pid_pipe_r_fd , &pid_p3 , sizeof( pid_t )) <=0 )
+        fatalError(PID_PIPE_ERR);
 
     strcpy(nazwa,"Proc 2   ");
 
@@ -123,8 +137,6 @@ void startProcess2( char *nazwa, common_sig_struct * sig_struct , shm_sem_pkg * 
         fatalError(T_CREATION_ERR);
     pthread_join(thread , NULL);
 
-    fprintf(stderr, "watek 2 zakonczony \n");
-
     // zwalnianie zasobow i "zamykanie" niedomknietych spraw :P
 
     if( signalDeReg( common_sig_t , sig_struct->sig_t_size ) != SUCCESS)
@@ -134,4 +146,6 @@ void startProcess2( char *nazwa, common_sig_struct * sig_struct , shm_sem_pkg * 
         fatalError(SIG_DEREG_ERR);
 
     close(pkg23->pipe_fd[1]);
+
+    fprintf(stderr, "proces 2 zakonczony \n");
 }

@@ -1,8 +1,8 @@
 #include"process.h"
 
-int * common_sig_t;
-shm_sem_pkg * pkg;
-pthread_t thread;
+static int * common_sig_t;
+static shm_sem_pkg * pkg;
+static pthread_t thread;
 
 static void sigHandler(int signo)
 {
@@ -47,14 +47,15 @@ static void * mainLoop()
 
         if( !semVal(pkg->sem_id , 3))
         {
+            semlock(pkg->sem_id, 1); // czekanie az proces 2 przestanie ogarniac swoje rzeczy
             semlock(pkg->sem_id, 4); // ustawienie flagi sygnalu do zabicia procesu nr 2
             semunlock(pkg->sem_id, 2); // wpuszczenie proc 2 do sprawdzenia flagi i zabicia sie
 
-            pthread_cancel(thread);
-            pthread_testcancel();
+            break;
+            /*pthread_cancel(thread);
+            pthread_testcancel(); */
         }
-
-        if( (readed_bytes = read( STDIN_FILENO ,  buffer , BUFFER_SIZE))  > 0)
+        else if( (readed_bytes = read( STDIN_FILENO ,  buffer , BUFFER_SIZE))  > 0)
         {
 
             semlock(pkg->sem_id, 1);
@@ -65,9 +66,10 @@ static void * mainLoop()
                     semlock(pkg->sem_id, 4); // ustawienie flagi sygnalu do zabicia procesu nr 2
 
                 semunlock(pkg->sem_id, 2); // wpuszczenie proc 2 do sprawdzenia flagi i zabicia sie
-               
-                pthread_cancel(thread);
-                pthread_testcancel();
+
+                break;
+                /*pthread_cancel(thread);
+                pthread_testcancel(); */
             }
 
             shm[0] = (unsigned char)readed_bytes;
@@ -80,13 +82,16 @@ static void * mainLoop()
             semunlock(pkg->sem_id, 2);
 
         }
-        else if( readed_bytes == -1)
+        else if( readed_bytes == 0) // zamykanie programu bo koniec wejscia
         {
-            fatalError(READ_ERR);
+            semlock(pkg->sem_id, 1); // czekanie az proces 2 przestanie ogarniac swoje rzeczy
+            semlock(pkg->sem_id, 4); // ustawienie flagi sygnalu do zabicia procesu nr 2
+            semunlock(pkg->sem_id, 2); // wpuszczenie proc 2 do sprawdzenia flagi i zabicia sie
+            break;
         }
         else
         {
-            break; // zamykanie programu bo koniec wejscia
+            fatalError(READ_ERR);
         }
     }
     pthread_exit(EXIT_SUCCESS);
@@ -108,8 +113,8 @@ void startProcess1( char *nazwa , common_sig_struct * sig_struct , shm_sem_pkg *
         fatalError(T_CREATION_ERR);
     pthread_join(thread , NULL);
 
-
-    // zwalnianie zasobow i "zamykanie" niedomknietych spraw :P
     if( signalDeReg( common_sig_t , sig_struct->sig_t_size ) != SUCCESS)
         fatalError(SIG_DEREG_ERR);
+
+    fprintf(stderr, "proces 1 zakonczony\n");
 }

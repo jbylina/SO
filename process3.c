@@ -2,8 +2,8 @@
 
 static int * common_sig_t;
 static int * communication_sig_t;
-pid_t pid_p2;
-pthread_t thread;
+static pid_t pid_p2;
+static pthread_t thread;
 
 static void sigHandler(int signo)
 {
@@ -35,7 +35,7 @@ static void communicationSigHandler(int signo)
     }
     else if(signo == communication_sig_t[2]) // koniec
     {
-
+        pthread_cancel(thread);
     }
 }
 
@@ -47,23 +47,29 @@ static void * mainLoop(void * read_pipe_fd )
 
     while(1)
     {
+
         if((readed_bytes = read(*fd , &buffer , BUFFER_SIZE )) > 0)
         {
-
+            pthread_testcancel();
             unsigned short a;
             for( a =0 ; a < readed_bytes ; a++)
+                //fprintf(stderr, "%x", buffer[a]);
                 printf("%x", buffer[a]);
         }
+
     }
     pthread_exit(EXIT_SUCCESS);
 }
 
-void startProcess3( char *nazwa , pid_t in_pid_p2 , common_sig_struct * sig_struct , pipe_sig_pkg * pkg23 )
+void startProcess3( char *nazwa , common_sig_struct * sig_struct , pipe_sig_pkg * pkg23 )
 {
     common_sig_t = sig_struct->sig_t;
     communication_sig_t = pkg23->sig_tab;
-    close(pkg23->pipe_fd[1]); // zamykanie nieuzywanego deskryptora
-    pid_p2 = in_pid_p2;
+
+    if(pkg23->pid)
+        pid_p2 = pkg23->pid;
+    else if( read(pkg23->pid_pipe_r_fd , &pid_p2 , sizeof( pid_t )) <=0 )
+        fatalError(PID_PIPE_ERR);
 
     strcpy(nazwa,"Proc 3   " );
 
@@ -89,4 +95,6 @@ void startProcess3( char *nazwa , pid_t in_pid_p2 , common_sig_struct * sig_stru
         fatalError(SIG_DEREG_ERR);
 
     close(pkg23->pipe_fd[0]);
+
+    fprintf(stderr, "proces 3 zakonczony \n");
 }

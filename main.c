@@ -4,15 +4,15 @@ Semafor Sygnały Pam.Dzielona PIPE
 wszystkie obsluguja 3 sygnaly stop , start , koniec
 */
 
-
 static void startMainProcess()
 {
-
-    while(1)
+    while (waitpid(-1, NULL, 0))
     {
-        sleep(1);
+        if (errno == ECHILD)
+        {
+            break;
+        }
     }
-
 }
 
 int main(int argc, char *argv[])
@@ -23,6 +23,7 @@ int main(int argc, char *argv[])
 
     const int sem_count = 5;
     int common_signals[3] = { SIGFPE , SIGTSTP , SIGBUS };
+
     common_sig_struct common_signals_struct =
     {
         .sig_t = common_signals,
@@ -84,11 +85,19 @@ int main(int argc, char *argv[])
     if (pipe(pipe_fd) == -1)
         fatalError(PIPE_CREATION_ERR);
 
+    // tworzenie pipe-a do przekazania pida procesu nr 3 procesowi nr 2
+    int pid_pipe_fd[2];
+    if (pipe(pid_pipe_fd) == -1)
+        fatalError(PIPE_CREATION_ERR);
+
     // tworzenie paczki dla procesu 2 i 3
     pipe_sig_pkg package23;
-    package23.pipe_fd = pipe_fd;
+    package23.pipe_fd[0] = pipe_fd[0];
+    package23.pipe_fd[1] = pipe_fd[1];
     package23.sig_tab = communication_sig_table;
     package23.sig_tab_size = SIZE_OF_T(communication_sig_table);
+    package23.pid = 0;
+    package23.pid_pipe_r_fd = pid_pipe_fd[0];
 
 
     pid_t pid = fork();
@@ -101,21 +110,35 @@ int main(int argc, char *argv[])
             fatalError(P_CREATION_ERR);
         else if(pid > 0) // rodzic
         {
-            pid_t pid_p2 = pid;
+            package23.pid = pid; // pid procesu 2 przekazuje procesowi nr 3
             pid = fork();
             if(pid == -1)  //błąd
                 fatalError(P_CREATION_ERR);
             else if (pid > 0 )
-                startMainProcess();
+            {
+                write(pid_pipe_fd[1] , &pid , sizeof(pid_t) ); // przekazanie pida procesu 3 procesowi nr 2
+                startMainProcess( &package12 , &package23 , shm_id );
+
+                shmdt(package12.shm_ptr); // odlaczanie pam dziel
+
+                shmctl(shm_id, IPC_RMID, NULL); // zwalnianie pam dziel
+
+                semctl(package12.sem_id, 0, IPC_RMID); // zwalnianie semaforow  2 arg jest ignorowany
+
+                close(package23.pipe_fd[0]); // pipe kom 2-3
+                close(package23.pipe_fd[1]);
+
+                close(pid_pipe_fd[0]);
+                close(pid_pipe_fd[1]);
+            }
             else  // dziecko - PROCES 3
-                startProcess3( argv[0] , pid_p2 , &common_signals_struct , &package23 );
+                startProcess3( argv[0] , &common_signals_struct , &package23 );
         }
         else   // dziecko - PROCES 2
             startProcess2( argv[0] , &common_signals_struct,  &package12 , &package23 );
     }
     else        // dziecko - PROCES 1
         startProcess1(  argv[0],  &common_signals_struct , &package12 );
-
 
     return 0;
 }

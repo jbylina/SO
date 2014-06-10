@@ -1,6 +1,5 @@
 #ifndef PROCESS_H_INCLUDED
 #define PROCESS_H_INCLUDED
-
 #include<stdio.h>
 #include<stdlib.h>
 #include<string.h>
@@ -16,9 +15,10 @@
 #include<sys/ipc.h>
 #include<sys/shm.h>
 #include<sys/sem.h>
+#include<sys/wait.h>
 
 #define SIZE_OF_T(x) (sizeof(x)/sizeof(x[0]))
-#define BUFFER_SIZE   200 * sizeof(char) // bufor nie moze byc wiekszy niz 255
+#define BUFFER_SIZE   (200 * sizeof(char)) // bufor nie moze byc wiekszy niz 255
 #define BUFFER_SIZE_WITH_HEADER  (BUFFER_SIZE + sizeof(unsigned char))
 
 #if defined(__GNU_LIBRARY__) && !defined(_SEM_SEMUN_UNDEFINED)
@@ -43,9 +43,11 @@ typedef struct shm_sem_pkg
 
 typedef struct pipe_sig_pkg
 {
-    int * pipe_fd;
+    int pipe_fd[2];
     int * sig_tab;
     size_t sig_tab_size;
+    pid_t pid; // pid procesu z ktorym sie bede komunikowal
+    int pid_pipe_r_fd; // deksryptor tylko do czytania aby odebrac informacje o pidzie jesli pid bedzie zero
 } pipe_sig_pkg;
 
 typedef struct common_sig_struct
@@ -74,6 +76,8 @@ typedef enum Message { SUCCESS,
                        READ_ERR,
 
                        T_CREATION_ERR,
+
+                       PID_PIPE_ERR,
 
                      } Message;
 
